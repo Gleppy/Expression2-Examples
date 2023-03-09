@@ -1,0 +1,39 @@
+@name Find Mass Center
+@outputs [TotalMass]:number [MassCenter]:vector 
+@strict
+
+if (first() | dupefinished())
+{
+    local Self = entity()
+
+    switch (Self:isWeldedTo() ? 1 : 0)
+    {
+        case 1,
+        local Chassis  = Self:isWeldedTo()
+        local Entities = Chassis:getConnectedEntities(array("Weld", "Slider", "Axis"))
+        
+        MassCenter = vec()
+        TotalMass  = 0
+        
+        foreach(K, Entity:entity = Entities)
+        {
+            if (Entity == Self)
+            {
+                Entities:remove(K)
+            }
+        }
+        foreach(_, Entity:entity = Entities)
+        {
+            MassCenter += Entity:massCenter() * Entity:mass()
+            TotalMass  += Entity:mass()
+        }
+        MassCenter = MassCenter / TotalMass
+        
+        holoCreate(0, MassCenter, vec(1), ang(), vec(255), "models/sprops/misc/axis_plane.mdl")
+        break
+        
+        default,
+        print("Spawn chip on an entity.")
+        break
+    }
+}
