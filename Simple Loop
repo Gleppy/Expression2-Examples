@@ -1,17 +1,17 @@
 @name Simple Loop
-@persist [Delay Props Radius Height PropCounter Start]:number [Self]:entity
+@persist [UpdtFrq Entities Radius Height EntityCounter Start]:number [Self]:entity
 @model models/maxofs2d/balloon_classic.mdl
 @strict
 
 if (first() | dupefinished())
 {
-    Delay    = 100
-    Props    = 10
+    UpdtFrq  = 10
+    Entities = 10
     Radius   = 100
     Height   = 100
     Self     = entity()
 
-    PropCounter = Start = 0
+    EntityCounter = Start = 0
 
     propSpawnUndo(0)
 }
@@ -20,7 +20,7 @@ event chipUsed([_]:entity)
     Start = !Start
     if (Start)
     {
-        timer("spawn", Delay)
+        timer("spawn", 1000 / UpdtFrq)
         Self:soundPlay("Activated", 0.5, "garrysmod/ui_click.wav")
     }
     elseif (!Start)
@@ -29,31 +29,30 @@ event chipUsed([_]:entity)
         reset()
     }
 }
-if (clk("spawn") & PropCounter < Props)
+if (clk("spawn") & EntityCounter < Entities)
 {
     try
     {
         if (propCanCreate())
         {
-            local Sin  = sin((PropCounter / Props) * 360) * Radius
-            local Cos  = cos((PropCounter / Props) * 360) * Radius
-            local Prop = propSpawn("models/maxofs2d/balloon_classic.mdl", Self:pos() + vec(Sin, Cos, Height), Self:angles(), 1)
+            local Sin  = sin((EntityCounter / Entities) * 360) * Radius
+            local Cos  = cos((EntityCounter / Entities) * 360) * Radius
+            local Entity = propSpawn("models/maxofs2d/balloon_classic.mdl", Self:pos() + vec(Sin, Cos, Height), Self:angles(), 1)
 
-            if (Prop:isValid())
+            if (Entity:isValid())
             { 
-                PropCounter++
+                EntityCounter++
             }
         }
     }
-    catch (Error)
+    catch (_)
     {
-        print(Error)
     }
-    timer("spawn", Delay)
+    timer("spawn", 1000 / UpdtFrq)
 }
-if (changed(PropCounter == Props) & (PropCounter == Props))
+if (changed(EntityCounter == Entities) & (EntityCounter == Entities))
 {
-    print(format("Finished spawning %s props.", PropCounter))
+    print(format("Finished spawning %s props.", EntityCounter))
 
     Self:soundPlay("Finished", 0.5, "garrysmod/content_downloaded.wav")
 }
