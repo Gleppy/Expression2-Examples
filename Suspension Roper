@@ -1,0 +1,149 @@
+@name Suspension Roper
+@persist [Car]:table 
+
+if(first()|dupefinished())
+{
+    #Type .rope to begin.
+    local E = entity()
+    
+    Car = table()
+    Car["swing axle?",  normal] = 1
+    Car["switch side?", normal] = 0
+    Car["show rope?",   normal] = 1
+    Car["caster",       number] = 0
+    Car["z offset",     number] = 5
+    Car["y offset",     number] = 0
+    Car["chassis",      entity] = E:isWeldedTo()
+    
+    function array findWheels()
+    {
+        local Rad = floor(Car["chassis", entity]:boxSize():x()) / 2
+    
+        findIncludeModel("models/sprops/trans/wheel_")
+        findInSphere(Car["chassis", entity]:pos(), 60 + Rad)
+        
+        This = findToArray()
+        return This
+    }
+
+    function void setTimer(Name:string)
+    {
+        timer(Name, 250)
+    }
+    function void makeHolo(Index, [Pos Color]:vector)
+    {
+        holoCreate(Index, Pos, vec(0.25), ang(), Color, "models/holograms/icosphere.mdl")
+        holoParent(Index, Car["chassis", entity])
+        holoDisableShading(Index, 1)
+    }
+    Car["wheels", array] = findWheels()
+    Car["wheels count", number] = Car["wheels", array]:count()
+
+    if(Car["wheels count", number] != 0 & Car["chassis", entity]:isValid())
+    {
+        if(dupefinished())
+        {
+            print("type .rope to begin.")
+        }
+    }
+    elseif(!Car["chassis", entity]:isValid())
+    {
+        error("Place the chip on a prop!")
+    }
+    elseif(Car["wheels count", number] == 0)
+    {
+        error("Didn't find any wheels!")
+    }
+    
+    A = 0
+    
+    makeHolo(100, Car["chassis", entity]:pos() + vec(0, 0, Car["z offset", number]), Car["chassis", entity]:getColor())
+    holoAng(100, Car["chassis", entity]:angles())
+    holoModel(100, Car["chassis", entity]:model())
+    holoMaterial(100, Car["chassis", entity]:getMaterial())
+    holoScale(100, vec(1))
+    holoAlpha(100, 75)
+    
+    foreach(_, Wheel:entity = Car["wheels", array])
+    {
+        local Z         =   Car["chassis", entity]:pos():z() - Wheel:pos():z()
+        local DistanceX = -(Car["chassis", entity]:toWorld(vec(Car["chassis", entity]:toLocal(Wheel:pos()):x(), 0, 0)) - Wheel:pos()):x()
+        local DistanceX =   Car["switch side?", normal] ? -DistanceX : DistanceX
+        local Vector_1  =   Car["chassis", entity]:toWorld(vec(Car["chassis", entity]:toLocal(Wheel:pos()):x() + DistanceX / 1.5, DistanceX * Car["y offset",  number], -Z))
+        local Vector_2  =   Car["chassis", entity]:toWorld(vec(Car["chassis", entity]:toLocal(Wheel:pos()):x() - DistanceX / 1.5, DistanceX * Car["y offset",  number], -Z))
+        local Vector_3  =   Car["chassis", entity]:toWorld(vec(Car["chassis", entity]:toLocal(Wheel:pos()):x(), DistanceX * Car["y offset",  number], -Z))
+        local Vector_4  =   Car["chassis", entity]:toWorld(    Car["chassis", entity]:toLocal(Wheel:pos()) + vec(Car["caster", number], 0, 100))
+        
+        makeHolo(A, Vector_1, vec(255, 0, 0))
+        A++
+        makeHolo(A, Vector_2, vec(255, 0, 0))
+        A++
+        makeHolo(A, Vector_4, vec(0, 255, 0))
+        holoAlpha(A, 255 *Car["swing axle?", normal])
+        A++
+        makeHolo(A, Vector_3, vec(0, 127.5, 0))
+        holoAlpha(A, 255 *Car["swing axle?", normal])
+        A++
+        makeHolo(A, Wheel:pos(), vec(127.5, 0, 0))
+        A++
+    }
+}
+event chat(Player:entity, Said:string, _:number)
+{
+    if(Player == owner() & Said == ".rope") {
+        
+        Car["roped?", normal] = 1
+        Car["chassis", entity]:soundPlay("start", 0.2, "buttons/button14.wav")
+        setTimer("rope")
+        hideChat(1)
+    }
+    elseif(Player == owner() & Said == ".redo" & Car["roped?", normal] == 1)
+    {
+        Car["chassis", entity]:setPos(Car["chassis", entity]:pos() + vec(0, 0, -Car["z offset", number]))
+        holoAlpha(100, 100)
+        Car["roped?", normal] = 0
+        Car["chassis", entity]:constraintBreak("rope")
+        Car["chassis", entity]:soundPlay("start", 0.2, "buttons/button15.wav")
+        hideChat(1)
+    }
+    elseif(Player == owner() & Said == ".finished" & Car["roped?", normal])
+    {
+        Car["chassis", entity]:soundPlay("start", 0.2, "buttons/button15.wav")
+        selfDestruct()
+        hideChat(1)
+    }
+    elseif(Player == owner() & Said == ".reset")
+    {
+        hideChat(1)
+        reset()
+    }
+}
+if(clk("rope"))
+{
+    for(I = 1, Car["wheels count", number])
+    {
+        local Wheel = Car["wheels", array][I, entity]
+
+        local Z         =     Car["chassis",      entity]:pos():z() - Wheel:pos():z()
+        local DistanceX =    (Car["chassis",      entity]:toWorld(vec(Car["chassis", entity]:toLocal(Wheel:pos()):x(), 0, 0)) - Wheel:pos()):x()
+        local DistanceX =     Car["switch side?", normal] ? DistanceX : -DistanceX
+        local Vector_1  = vec(Car["chassis",      entity]:toLocal(Wheel:pos()):x() + DistanceX / 1.5, DistanceX * Car["y offset",  number], -Z)
+        local Vector_2  = vec(Car["chassis",      entity]:toLocal(Wheel:pos()):x() - DistanceX / 1.5, DistanceX * Car["y offset",  number], -Z)
+        local Vector_3  = vec(Car["chassis",      entity]:toLocal(Wheel:pos()):x(), DistanceX * Car["y offset",  number], -Z)
+        local Vector_4  = Car["chassis",          entity]:toLocal(Wheel:pos()) + vec(Car["caster", number], 0, 100)
+            
+        rope(0, Wheel, vec(0, 0, 0), Car["chassis", entity], Vector_1, 0, Car["show rope?", normal] * 0.5, "", 1)
+        rope(1, Wheel, vec(0, 0, 0), Car["chassis", entity], Vector_2, 0, Car["show rope?", normal] * 0.5, "", 1)
+        if(Car["swing axle?", normal]) {
+            rope(2, Wheel, Wheel:toLocal(Car["chassis", entity]:toWorld(Vector_3)), Car["chassis", entity], Vector_4, 0, Car["show rope?", normal] * 0.5, "", 1)
+        }
+    }
+    setTimer("finished")
+}
+if(clk("finished"))
+{
+    Car["chassis", entity]:setPos(Car["chassis", entity]:pos() + vec(0, 0, Car["z offset", number]))
+    holoAlpha(100, 0)
+    print("Finished roping!")
+    hint("Type .redo if you're not happy with the result, or .finished if you're happy.", 5)
+}
