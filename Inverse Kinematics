@@ -1,0 +1,64 @@
+@name Inverse Kinematics
+@persist [Length_Bone1 Length_Bone2 MaxLength Index]:number [User Base Joint1 Bone1 Joint2]:entity 
+@strict
+
+if (first() | dupefinished())
+{
+    Length_Bone1 = 100
+    Length_Bone2 = 100
+    MaxLength    = Length_Bone1 + Length_Bone2
+    
+    local Self = entity()
+    User       = owner()
+    Index      = 0
+    
+    function entity entity:makeHolo([Pos Size]:vector, [Ang]:angle, [Model]:string)
+    {
+        local Hologram = holoCreate(Index, This:toWorld(Pos), vec(), This:toWorld(Ang), vec(255), Model)
+        holoScaleUnits(Index, Size)
+        holoMaterial(Index, "models/debug/debugwhite")
+        holoParent(Index, This)
+
+        Index++
+        
+        return Hologram
+    }
+    Base = Self:makeHolo(vec(), vec(), ang(), "models/sprops/misc/empty.mdl")
+
+    Joint1 = Base:makeHolo(vec(), vec(8), ang(), "models/starfall/holograms/sphere.mdl")
+
+    Bone1 = Joint1:makeHolo(vec(0, 0, Length_Bone1 / 2), vec(4, 4, Length_Bone1), ang(), "models/holograms/cube.mdl")
+
+    Joint2 = Bone1:makeHolo(vec(0, 0, Length_Bone1 / 2), vec(4), ang(), "models/starfall/holograms/cylinder.mdl")
+
+    Joint2:makeHolo(vec(0, Length_Bone2 / 2, 0), vec(4, Length_Bone2, 4), ang(), "models/holograms/cube.mdl")
+}
+interval(100)
+
+GotoPos = User:aimPos() #aimpos
+
+local Disp    = Base:toLocal(GotoPos) #local displacement
+local DispTot = Disp:length()         #total length of displacement
+
+local DispX = vec(Disp:x(), Disp:y(), 0):length() #horizontal displacement length
+local DispZ = Disp:z()                            #vertical displacement length
+
+local A = Length_Bone2 #opposite
+local B = Length_Bone1 #adjacent
+local C = DispTot      #hypotenuse
+
+if (DispTot < MaxLength)
+{
+    #Yaw
+    local Yaw = atan(Disp:y(), Disp:x())                   #bearing, basically 
+    holoAng(holoIndex(Base), Base:toWorld(ang(0, Yaw, 0))) #turn the base for bearing
+
+    #Joint1 angles
+    local AngleA = acos((B ^ 2 + C ^ 2 - A ^ 2 ) / (2 * B * C))
+    local PrimeA = atan(DispZ, DispX)                                 #PrimeA is actually the angle "under" the triangle rather than in the triangle, it gives the triangle elevation
+
+    holoAng(holoIndex(Joint1), Base:toWorld(ang(90 - AngleA + PrimeA, 0, 0))) #90 - AngleA + PrimeA is the only thing ive found that works
+    #Joint2 angles
+    local AngleB = acos((A ^ 2 + B ^ 2 - C ^ 2 ) / (2 * A * B))
+    holoAng(holoIndex(Joint2), Bone1:toWorld(ang(180 - AngleB, 0, 90)))
+}
