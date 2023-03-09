@@ -18,8 +18,16 @@ if (first() | dupefinished())
     SL:setMass(50000)
     SR:setMass(50000)
     
+    #ifdef noCollideAll(e,n)
     noCollideAll(SL, 1)
     noCollideAll(SR, 1)
+    #else
+    #endif
+    
+    #ifndef entity:setAng(a)
+    print("propcore extension not found.")
+    exit()
+    #endif
     
     if (C:isValid())
     {
