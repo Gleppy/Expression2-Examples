@@ -12,6 +12,8 @@ if (first() | dupefinished())
     Self     = entity()
 
     PropCounter = Start = 0
+
+    propSpawnUndo(0)
 }
 event chipUsed([_]:entity)
 {
