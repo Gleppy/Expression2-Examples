@@ -1,0 +1,60 @@
+@name OffsetForce Floating Plate
+@persist [Height Damping Mass]:number [Delta R]:array [Entity]:entity
+@strict
+
+if (first() | duped())
+{
+    Height  = 50
+    Damping = 2
+    Mass    = 500
+    
+    R       = array()
+    Delta   = array()
+    
+    local Self = entity()
+    Entity     = Self:isWeldedTo()
+    
+    if (!Entity)
+    {
+        print("Place chip on an entity.")
+        exit()
+    }
+    rangerHitWater(1)
+    rangerFilter(Entity)
+    rangerPersist(1)
+
+    I = 0
+
+    XOffset = Entity:boxSize():y() / 2
+    YOffset = Entity:boxSize():x() / 2
+
+    Entity:setMass(Mass)
+    
+    for(X = -1, 1, 2)
+    {
+        for(Y = -1, 1, 2)
+        {
+            R:pushVector(vec(X * XOffset, Y * YOffset, 0))
+            
+            I++
+            holoCreate(I, Entity:pos(), vec() + 1)
+            holoModel(I, "sphere")
+        }
+    }
+}
+interval(33)
+
+for(I = 1, 4)
+{
+    local V = Entity:toWorld(R[I, vector])
+
+    local Ro = rangerOffset(Height, V, vec(0, 0, -1))
+
+    local C = Height - Ro:distance()
+
+    Entity:applyOffsetForce(Entity:toWorldAxis(vec():setZ(C + (C - Delta[I, number]) * Damping)) * Mass, V)
+
+    Delta[I, number] = 0 , Delta[I, number] = C
+
+    holoPos(I, Ro:position())
+}
