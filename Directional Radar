@@ -1,0 +1,49 @@
+@name Directional Radar
+@inputs  [Parent]:wirelink 
+@outputs [Target]:entity [Targets]:array
+@persist [Ent]:entity
+@strict 
+
+if (first() | dupefinished())
+{
+    local Pos      = vec(0, 0, 50)
+    local Ang      = ang(90, 0, 0)
+    local ShowHolo = 1
+
+    Ent = ->Parent ? Parent:entity() : entity()
+
+    holoCreate(0, Ent:toWorld(Pos), vec(0.5), Ent:toWorld(Ang), vec4(ShowHolo ? 255 : 0), "models/sprops/misc/alphanum/alphanum_arrow_b.mdl")
+    holoMaterial(0, "models/debug/debugwhite")
+    holoParent(0, Ent)
+    
+    timer("update", 0)
+}
+if (!Ent:isValid())
+{
+    exit()
+}
+if (clk("update"))
+{
+    local UpdateFreq = 1 #how many updates per second
+    local MaxDist    = 650 #meters
+    local ConeDeg    = 20 #degrees
+    
+    if (findCanQuery())
+    {
+        findIncludeClass("prop_physics")
+        findInCone(holoEntity(0):pos(), holoEntity(0):up(), convertUnit("m", "u", MaxDist), ConeDeg)
+        findSortByDistance(holoEntity(0):pos())
+        
+        Targets = findToArray()
+        
+        if (Targets:count() != 0)
+        {
+            Target = Targets[1, entity]
+        }
+        else
+        {
+            Target = noentity()
+        }
+    }
+    timer("update", 1000 / UpdateFreq)
+}
