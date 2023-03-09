@@ -1,0 +1,29 @@
+@name Proximity Counter
+@outputs [Player]:entity [BoxCount]:number
+@persist [BoxSize]:vector [UpdateFreq]:number [Self]:entity 
+@strict
+
+if (first() | dupefinished())
+{
+    BoxSize = vec(400, 400, 400)
+    UpdateFreq = 2
+
+    Self = entity()
+    
+    timer("update", 0) 
+}
+elseif (clk("update"))
+{
+    BoxCount = 0
+    Player   = noentity()
+    
+    foreach (_, Ply:entity = players())
+    {
+        if (inrange(Ply:pos(), Self:pos() - BoxSize / 2, Self:pos() + BoxSize / 2))
+        {
+            Player = Ply
+            BoxCount++
+        }
+    }
+    timer("update", 1000 / UpdateFreq)
+}
