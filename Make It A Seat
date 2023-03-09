@@ -1,0 +1,22 @@
+@name Make it A Seat
+@strict
+
+if (first() | dupefinished())
+{
+    local Self   = entity()
+    local Entity = Self:isWeldedTo()
+    
+    if (Entity)
+    {
+        #ifdef seatSpawn(s,v,a,n)
+        seatSpawn(Entity:model(), Entity:pos(), Entity:angles(), Entity:isFrozen())
+        #else
+        print("propcore extension not found.")
+        exit()
+        #endif
+        
+        Entity:propDelete()
+        
+        selfDestruct()
+    }
+}
