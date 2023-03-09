@@ -4,6 +4,7 @@
 @persist [Units MaxRPM MaxVel MaxBoxSize Centripetal_Force W]:array
 @persist [Unit TC_Sens Centripetal_Sens Unit_Per_Hour]:number
 @strict
+
 if (first() | dupefinished())
 {
     #Link wheels with adv ent marker
