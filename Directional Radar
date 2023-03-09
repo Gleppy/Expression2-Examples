@@ -1,16 +1,17 @@
 @name Directional Radar
 @inputs  [Parent]:wirelink 
-@outputs [Target]:entity [Targets]:array
+@outputs [Target]:entity 
 @persist [Ent]:entity
-@strict 
 
 if (first() | dupefinished())
 {
     local Pos      = vec(0, 0, 50)
     local Ang      = ang(90, 0, 0)
     local ShowHolo = 1
+    
+    local Self     = entity()
 
-    Ent = ->Parent ? Parent:entity() : entity()
+    Ent = ->Parent ? Parent:entity() : Self:isWeldedTo() ?: Self
 
     holoCreate(0, Ent:toWorld(Pos), vec(0.5), Ent:toWorld(Ang), vec4(ShowHolo ? 255 : 0), "models/sprops/misc/alphanum/alphanum_arrow_b.mdl")
     holoMaterial(0, "models/debug/debugwhite")
@@ -30,15 +31,14 @@ if (clk("update"))
     
     if (findCanQuery())
     {
-        findIncludeClass("prop_physics")
+        findIncludeClass("prop_")
         findInCone(holoEntity(0):pos(), holoEntity(0):up(), convertUnit("m", "u", MaxDist), ConeDeg)
-        findSortByDistance(holoEntity(0):pos())
         
-        Targets = findToArray()
+        local Find = findClosest(Ent:pos())
         
-        if (Targets:count() != 0)
+        if (Find)
         {
-            Target = Targets[1, entity]
+            Target = Find:owner():isPlayer() ? Find : noentity()
         }
         else
         {
