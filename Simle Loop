@@ -1,0 +1,57 @@
+@name Simple Loop
+@persist [Delay Props Radius Height PropCounter Start]:number [Self]:entity
+@model models/maxofs2d/balloon_classic.mdl
+@strict
+
+if (first() | dupefinished())
+{
+    Delay    = 100
+    Props    = 10
+    Radius   = 100
+    Height   = 100
+    Self     = entity()
+
+    PropCounter = Start = 0
+}
+event chipUsed([_]:entity)
+{
+    Start = !Start
+    if (Start)
+    {
+        timer("spawn", Delay)
+        Self:soundPlay("Activated", 0.5, "garrysmod/ui_click.wav")
+    }
+    elseif (!Start)
+    {
+        propDeleteAll()
+        reset()
+    }
+}
+if (clk("spawn") & PropCounter < Props)
+{
+    try
+    {
+        if (propCanCreate())
+        {
+            local Sin  = sin((PropCounter / Props) * 360) * Radius
+            local Cos  = cos((PropCounter / Props) * 360) * Radius
+            local Prop = propSpawn("models/maxofs2d/balloon_classic.mdl", Self:pos() + vec(Sin, Cos, Height), Self:angles(), 1)
+
+            if (Prop:isValid())
+            { 
+                PropCounter++
+            }
+        }
+    }
+    catch (Error)
+    {
+        print(Error)
+    }
+    timer("spawn", Delay)
+}
+if (changed(PropCounter == Props) & (PropCounter == Props))
+{
+    print(format("Finished spawning %s props.", PropCounter))
+
+    Self:soundPlay("Finished", 0.5, "garrysmod/content_downloaded.wav")
+}
