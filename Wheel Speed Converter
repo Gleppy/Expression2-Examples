@@ -7,7 +7,7 @@
 
 if (first() | dupefinished())
 {
-    Unit          = 2 #1 = metric #2 = imperial
+    Unit          = 1 #1 = metric #2 = imperial
     UpdateFreq    = 5    
     
     Units         = array("mm", "in", "km/h", "mph")
