@@ -55,7 +55,7 @@ if (DispTot < MaxLength)
 
     #Joint1 angles
     local AngleA = acos((B ^ 2 + C ^ 2 - A ^ 2 ) / (2 * B * C))
-    local PrimeA = atan(DispZ, DispX)                                 #PrimeA is actually the angle "under" the triangle rather than in the triangle, it gives the triangle elevation
+    local PrimeA = atan(-DispZ, DispX)                                 #PrimeA is actually the angle "under" the triangle rather than in the triangle, it gives the triangle elevation
 
     holoAng(holoIndex(Joint1), Base:toWorld(ang(90 - AngleA + PrimeA, 0, 0))) #90 - AngleA + PrimeA is the only thing ive found that works
     #Joint2 angles
