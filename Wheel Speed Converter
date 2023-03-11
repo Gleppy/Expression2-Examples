@@ -1,65 +1,42 @@
 @name Wheel Speed Converter
-@inputs [Wheels]:wirelink 
-@outputs [Wheel_Speed Air_Speed Traction_Control]:number 
-@persist [Units MaxRPM MaxVel MaxBoxSize Centripetal_Force W]:array
-@persist [Unit TC_Sens Centripetal_Sens Unit_Per_Hour]:number
+@inputs [Adv_Ent_Marker]:wirelink 
+@outputs [Wheel_Speed, Air_Speed]:number 
+@persist [Units, Unit_Per_Hour, MaxBoxSize, MaxRPM, MaxVel, Wheels]:array
+@persist [Unit, UpdateFreq]:number
 @strict
 
 if (first() | dupefinished())
 {
-    #Link wheels with adv ent marker
+    Unit          = 2 #1 = metric #2 = imperial
+    UpdateFreq    = 5    
     
-    Unit              = 0    #0 = metric #1 = imperial
-    TC_Sens           = 10   #kp/h or mp/h, depends what unit you chose
-    Centripetal_Sens  = 1
-    
-    MaxBoxSize        = array()
-    MaxRPM            = array()
-    MaxVel            = array()
-    Centripetal_Force = array()
-    
-    switch (clamp(Unit, 1, 2))
-    {
-        case 0,
-        Unit_Per_Hour = 60 / 1000000 #1000000 millimeters in a kilometer
-        break
-        
-        case 1,
-        Unit_Per_Hour = 60 / 63360 #63360 inches in a mile
-        break
-    }
-    Units = array("mm", "in", "km/h", "mph")
-    
-    if (->Wheels)
-    {
-        W = Wheels["Entities", array]
-    }
-}
-interval(200)
+    Units         = array("mm", "in", "km/h", "mph")
+    Unit_Per_Hour = array(60 / 1000000, 60 / 63360)
+    MaxBoxSize    = array()
+    MaxRPM        = array()
+    MaxVel        = array()
 
-for (I = 1, W:count())
-{
-    if (W[I, entity]:isValid())
+    if (->Adv_Ent_Marker)
     {
-               MaxBoxSize[I, number] = floor(W[I, entity]:boxSize():x())
-                   MaxRPM[I, number] =   abs(W[I, entity]:angVel():pitch()) / 6
-                   MaxVel[I, number] =   abs(W[I, entity]:velL():x()) + abs(W[I, entity]:velL():z())
-        Centripetal_Force[I, number] =   abs(W[I, entity]:velL():y())
-        
-        Valid = 1
+        Wheels = Adv_Ent_Marker["Entities", array]
     }
 }
-if (Valid)
+if (Wheels:count() != 0)
 {
-    local BoxSize     =        MaxBoxSize:average()
-    local RPM         =            MaxRPM:average()
-    local Vel         =            MaxVel:average()
-    local Centripetal = Centripetal_Force:average()
+    foreach (K, V:entity = Wheels)
+    {
+        MaxBoxSize[K, number] = round(V:boxSize():x())
+        MaxRPM[K,     number] = abs(V:angVel():pitch() / 6)
+        MaxVel[K,     number] = V:vel():length()
+    }
+    local BoxSize  = MaxBoxSize:average()
+    local RPM      =     MaxRPM:average()
+    local Vel      =     MaxVel:average()
     
-    local Diameter    = toUnit(Units[clamp(1 + Unit, 1, 2), string], BoxSize)
+    local Diameter = toUnit(Units[Unit, string], BoxSize)
     
-    Wheel_Speed       = RPM * Diameter * Unit_Per_Hour * _PI
-    Air_Speed         = toUnit(Units[clamp(1 + Unit, 1, 2) + 2, string], Vel)
-    
-    Traction_Control  = (1 - clamp(Wheel_Speed - Air_Speed, 0, TC_Sens) / TC_Sens) * (1 - clamp(Centripetal / 1000, 0, 1) * Centripetal_Sens)
+    Wheel_Speed    = RPM * Diameter * Unit_Per_Hour[Unit, number] * _PI
+    Air_Speed      = toUnit(Units[Unit + 2, string], Vel)
+
+    interval(1000 / UpdateFreq)
 }
