@@ -1,0 +1,200 @@
+@model models/props_junk/sawblade001a.mdl
+@name Heads or Tails
+@inputs [TextScreen]:wirelink 
+@outputs [Status, FirstPlayer, FirstResult, LastPlayer, LastResult, Winner, Loser]:string
+@persist [Coin]:entity [Table]:table [TossForce, AngVelVec, Tossing]:number 
+@trigger none
+@strict
+
+if (first() | dupefinished())
+{
+    PropCoin  = 0
+    TossForce = 500
+    
+    #[-------------------------------------- don't edit anything below unless you know what you're doing --------------------------------------]#
+    
+    Table   = table()
+    Tossing = 0
+    
+    Table["players", array] = array()
+    Table["results", array] = array()
+    
+    #ifndef E:sendMessage(S)
+    print("playercore not found, link a text screen to see winner.")
+    #endif
+    
+    #ifndef propSpawn(S, V, A, N)
+    print("propcore not found. Coin Toss does not work without it.")
+    error("propcore not found. Coin Toss does not work without it.")
+    #endif
+    if (PropCoin)
+    {
+        if (propCanCreate())
+        {
+            propSpawnUndo(0)
+            Coin = propSpawn("models/props_junk/sawblade001a.mdl", entity():toWorld(vec(0, 0, 25)), ang(0, 0, 0), 1)
+            if (Coin:isValid())
+            {
+                #ifdef E:setModel(S)
+                entity():setModel("models/beer/wiremod/gate_e2.mdl")
+                #endif
+            }
+        }
+        else
+        {
+            Coin = entity()
+            print("could not spawn coin.")
+        }
+    }
+    else
+    {
+        Coin = entity()
+    }
+    if (Coin:isValid())
+    {
+        Coin:setMass(50)
+        Coin:propDraw(0)
+        Coin:propDrag(0)
+        Coin:propPhysicalMaterial("metal")
+        Coin:propFreeze(0)
+        
+        #ifdef E:setWorldTip(S)
+        Coin:setWorldTip("Press Use to toss.")
+        #endif
+        
+        if (holoCanCreate())
+        {
+            local Coins = array(
+            "models/player/items/crafting/coin_summer2015_bronze.mdl",
+            "models/player/items/crafting/coin_summer2015_gold.mdl",
+            "models/player/items/crafting/coin_summer2015_silver.mdl"
+            )
+            local CoinHolo = holoCreate(0, Coin:toWorld(vec(0, 0, 0)), vec(), Coin:toWorld(ang(90, 0, 0)), vec(255), holoModelAny() ? Coins[randint(1, Coins:count()), string] : "models/props_trainstation/trainstation_clock001.mdl")
+            
+            if (CoinHolo:isValid())
+            {
+                holoScaleUnits(holoIndex(CoinHolo), shiftR(Coin:boxSize()))
+                holoParent(holoIndex(CoinHolo), Coin)
+            }
+        }
+    }
+}
+event keyPressed([Player]:entity, [_]:string, [Down]:number, [KeyBind]:string)
+{
+    if (!Tossing)
+    {
+        if (Player:aimEntity() == Coin & KeyBind == "use" & Down & !Coin:isPlayerHolding() & !Coin:isFrozen())
+        {
+            W      = noentity()
+            Winner = Loser = ""
+            
+            Coin:propSetVelocity(vec(0, 0, TossForce + randint(0, 100)))
+            Coin:propSetAngVelocity(vec(randint(-1000, 1000), randint(-1000, 1000), 0))
+            
+            if (Table["players", array]:count() == 0)
+            {
+                FirstPlayer = FirstResult = LastPlayer = LastResult = ""
+            }
+            Table["players", array]:pushEntity(Player)
+            
+            Tossing = 1
+        }
+    }
+}
+if (Coin:isValid())
+{
+    if (Table["players", array]:count() != 0)
+    {
+        AngVelVec = vec(Coin:angVel()):length() > 1
+            
+        if (changed(AngVelVec) & !AngVelVec & Tossing)
+        {
+            if (Table["players", array][1, entity])
+            {
+                FirstPlayer = Table["players", array][1, entity]:name()
+            }
+            if (Table["players", array][2, entity])
+            {
+                LastPlayer = Table["players", array][2, entity]:name()
+            }
+            if (Table["players", array][2, entity] == Table["players", array][1, entity])
+            {
+                Table["players", array][1, entity] = noentity()
+            }
+            local Side = round(vec(0, 0, 1):dot(Coin:up()))
+            local Result = Side == 1 ? "Tails" : "Heads"
+            
+            #ifdef E:sendMessage(S)
+            Table["players", array][Table["players", array]:count(), entity]:sendMessage(format("%s", Result))
+            #endif
+            
+            Table["results", array]:pushString(Result)
+            
+            FirstResult = Table["results", array][1, string]
+            LastResult  = Table["results", array][2, string]
+            
+            Tossing = 0
+        }
+    }
+    if (Table["players", array]:count() == 2 & changed(Tossing) & !Tossing)
+    {
+        if (Table["results", array][2, string] == Table["results", array][1, string])
+        {
+            W = Table["players", array][2, entity]
+        }
+        else
+        {
+            W = Table["players", array][1, entity]
+        }
+        if (W)
+        {
+            Winner = W:name()
+        }
+        #ifdef E:sendMessage(S)
+        foreach (_, V:entity = Table["players", array])
+        {
+            if (V == W)
+            {
+                V:sendMessage("You won!")
+                V:sendMessageCenter("You won!")
+            }
+            elseif (V != W)
+            {
+                if (V)
+                {
+                    V:sendMessage("You lost!")
+                    V:sendMessageCenter("You lost!")
+                    Loser = V:name()
+                }
+            }
+        }
+        #endif
+        
+        Table["players", array] = array()
+        Table["results", array] = array()
+    }
+    #ifdef E:setWorldTip(S)
+    if (changed(Tossing) & Tossing)
+    {
+        Status = "Tossing..."
+        Coin:setWorldTip("Tossing...")
+    }
+    elseif (changed(Tossing) & !Tossing)
+    {
+        Status = "Ready"
+        Coin:setWorldTip("Press Use to toss.")
+    }
+    #endif
+}
+if (->TextScreen)
+{
+    TextScreen["String", string] = format("Status: %s
+First player: %s
+First result: %s
+Last player: %s
+Last result: %s
+
+Winner: %s
+Loser: %s", Status, FirstPlayer, FirstResult, LastPlayer, LastResult, Winner, Loser)
+}
+interval(500)
