@@ -1,0 +1,135 @@
+@name ACF RPM Calculator
+@inputs [Engine, Transmission, Transfer, Differential, Wheels]:wirelink
+@outputs [ExpectedWheelRPM, WheelRPM, ExpectedEngineRPM, EngineRPM]
+@persist Tick WheelsList:array
+@trigger none
+@strict
+
+if (first() | dupefinished())
+{
+    Tick = 0
+    
+    
+    function array wirelink:getWheels(...Temp:array)
+    {
+        local Engine = This:entity()
+        local Wheels = array()
+        
+        foreach (_, V:entity = Engine:getConnectedEntities())
+        {
+            if (Temp:count())
+            {
+                foreach (_, S:string = Temp)
+                {
+                    if (V:model():find(S))
+                    {
+                        Wheels:pushEntity(V)
+                    }
+                }
+            }
+            else
+            {
+                if (V:model():find("models/sprops/trans/wheel_") | V:model():find("models/sprops/trans/miscwheels/"))
+                {
+                    Wheels:pushEntity(V)
+                }
+            }
+        }
+        return Wheels
+    }
+    
+    
+    function number array:getRPM()
+    {
+        local AvgRPM = array()
+        foreach (_, V:entity = This)
+        {
+            local RPM = max(abs(V:angVel():pitch()), abs(V:angVel():yaw()), abs(V:angVel():pitch())) / 6
+            
+            AvgRPM:pushNumber(RPM)
+        }
+        return AvgRPM:average()
+    }
+    
+    
+    function number wirelink:outputRPM(...Temp:array)
+    {
+        local RPM = This["RPM", number]
+        
+        foreach (K, V:wirelink = Temp)
+        {
+            if (!V:entity():acfIsGearbox())
+            {
+                Temp:remove(K)
+            }
+        }
+        foreach (_, V:wirelink = Temp)
+        {
+            local Entity     = V:entity()
+            local Ratio      = Entity:acfGearRatio(Entity:acfGear())
+            local FinalRatio = Entity:acfFinalRatio()
+            
+            RPM *= Ratio * FinalRatio
+        }
+        return abs(RPM)
+    }
+    
+    
+    function number number:inputRPM(...Temp:array)
+    {
+        local RPM = This
+        
+        foreach (K, V:wirelink = Temp)
+        {
+            if (!V:entity():acfIsGearbox())
+            {
+                Temp:remove(K)
+            }
+        }
+        foreach (_, V:wirelink = Temp)
+        {
+            local Entity     = V:entity()
+            local Ratio      = Entity:acfGearRatio(Entity:acfGear())
+            local FinalRatio = Entity:acfFinalRatio()
+            if (Entity:acfGear() > 0)
+            {
+                RPM /= abs(Ratio * FinalRatio)
+            }
+            else
+            {
+                RPM = 0
+            }
+        }
+        return RPM / 1.107 #The math is correct but somehow wheels linked to acf components will spin a tiny bit faster than the calculated output RPM.
+    }
+    if (->Wheels)
+    {
+        WheelsList = Wheels["Entities", array]
+    }
+    else
+    {
+        if (->Engine)        
+        {
+            WheelsList = Engine:getWheels()
+        }
+        else
+        {
+            WheelsList = array()
+        }
+    }
+}
+event tick()
+{
+    Tick++
+    
+    if (Tick >= 20)
+    {
+        ExpectedWheelRPM   = Engine:outputRPM(Transmission, Transfer, Differential)
+        WheelRPM           = WheelsList:getRPM()
+        
+        ExpectedEngineRPM  = WheelRPM:inputRPM(Transmission, Transfer, Differential)
+        EngineRPM          = Engine["RPM", number]
+        
+        Tick = 0
+    }
+}
