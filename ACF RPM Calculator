@@ -7,19 +7,26 @@
 
 if (first() | dupefinished())
 {
-    Tick = 0
+    local ModelWhitelist = array("") #If you want to find specific wheels/entities, put their stringpath / partial stringpath here.
     
     
-    function array wirelink:getWheels(...Temp:array)
+    function array wirelink:getWheels(ModelWhitelist:array)
     {
-        local Engine = This:entity()
+        local Entity = This:entity()
         local Wheels = array()
         
-        foreach (_, V:entity = Engine:getConnectedEntities())
+        foreach (K, S:string = ModelWhitelist)
         {
-            if (Temp:count())
+            if (S:length() == 0)
             {
-                foreach (_, S:string = Temp)
+                ModelWhitelist:remove(K)
+            }
+        }
+        foreach (_, V:entity = Entity:getConnectedEntities())
+        {
+            if (ModelWhitelist:count())
+            {
+                foreach (_, S:string = ModelWhitelist)
                 {
                     if (V:model():find(S))
                     {
@@ -110,13 +117,14 @@ if (first() | dupefinished())
     {
         if (->Engine)        
         {
-            WheelsList = Engine:getWheels()
+            WheelsList = Engine:getWheels(ModelWhitelist)
         }
         else
         {
             WheelsList = array()
         }
     }
+    Tick = 0
 }
 event tick()
 {
@@ -129,6 +137,7 @@ event tick()
         
         ExpectedEngineRPM  = WheelRPM:inputRPM(Transmission, Transfer, Differential)
         EngineRPM          = Engine["RPM", number]
+        
         
         Tick = 0
     }
