@@ -2,11 +2,9 @@
 @inputs [Engine, Transmission, Transfer, Differential, Wheels]:wirelink
 @outputs [ExpectedWheelRPM, WheelRPM, ExpectedEngineRPM, EngineRPM]
 @persist Tick WheelsList:array
-@trigger none
+@trigger 
 @strict
 
-if (first() | dupefinished())
-{
 #[
     !!!READ DESCRIPTION!!!
     
@@ -18,6 +16,8 @@ if (first() | dupefinished())
     If you want to, you can link wheels/entities with an Adv Entity Marker, and wire "Wheels" input from the E2 to that adv Entity Marker.
     The whitelist will not be used if wheels/entities are linked with Adv Entity Marker.
 ]#
+if (first() | dupefinished())
+{
     local ModelWhitelist = array("")
     
     
@@ -118,8 +118,10 @@ if (first() | dupefinished())
                 RPM = 0
             }
         }
-        return RPM / 1.107 #The math is correct but somehow wheels linked to acf components will spin a tiny bit faster than the calculated output RPM, that's why it is divided by 1.107
+        return RPM #/ 1.107 #The math is correct but somehow wheels linked to acf components will spin a tiny bit faster than the calculated output RPM, that's why it is divided by 1.107
     }
+    
+    
     if (->Wheels)
     {
         WheelsList = Wheels["Entities", array]
@@ -135,6 +137,8 @@ if (first() | dupefinished())
             WheelsList = array()
         }
     }
+    
+    
     Tick = 0
 }
 event tick()
@@ -152,4 +156,8 @@ event tick()
         
         Tick = 0
     }
+}
+event input(_:string)
+{
+    reset()
 }
