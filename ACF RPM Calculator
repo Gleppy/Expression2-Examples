@@ -7,7 +7,18 @@
 
 if (first() | dupefinished())
 {
-    local ModelWhitelist = array("") #If you want to find specific wheels/entities, put their stringpath / partial stringpath here.
+#[
+    !!!READ DESCRIPTION!!!
+    
+    If you want to find specific wheels/entities, put their stringpath / partial stringpath in the ModelWhitelist. Example below.
+    
+    Example Of Whitelist:
+    ModelWhitelist = array("models/props_junk/PlasticCrate01a.mdl", "models/props_wasteland/prison_lamp001c.mdl", "models/props_interiors/Furniture_chair03a.mdl")
+
+    If you want to, you can link wheels/entities with an Adv Entity Marker, and wire "Wheels" input from the E2 to that adv Entity Marker.
+    The whitelist will not be used if wheels/entities are linked with Adv Entity Marker.
+]#
+    local ModelWhitelist = array("")
     
     
     function array wirelink:getWheels(ModelWhitelist:array)
@@ -107,7 +118,7 @@ if (first() | dupefinished())
                 RPM = 0
             }
         }
-        return RPM / 1.107 #The math is correct but somehow wheels linked to acf components will spin a tiny bit faster than the calculated output RPM.
+        return RPM / 1.107 #The math is correct but somehow wheels linked to acf components will spin a tiny bit faster than the calculated output RPM, that's why it is divided by 1.107
     }
     if (->Wheels)
     {
