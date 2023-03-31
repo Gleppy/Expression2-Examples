@@ -66,7 +66,7 @@ if (first() | dupefinished())
             
             AvgRPM:pushNumber(RPM)
         }
-        return AvgRPM:average()
+        return AvgRPM:average() / 1.123 #The math is correct but somehow wheels linked to acf components will spin a tiny bit faster than the calculated output RPM, that's why it is divided by 1.107
     }
     
     
@@ -118,7 +118,7 @@ if (first() | dupefinished())
                 RPM = 0
             }
         }
-        return RPM #/ 1.107 #The math is correct but somehow wheels linked to acf components will spin a tiny bit faster than the calculated output RPM, that's why it is divided by 1.107
+        return RPM
     }
     
     
