@@ -1,7 +1,7 @@
 @name Glep's Tank Mobility Chip
 @inputs [Base, Seat, Engine, Gearbox, TransferL, TransferR]:wirelink
 @outputs [Speed, Active, Throttle, Gear, GearLeft, GearRight, BrakeLeft, BrakeRight, ClutchLeft, ClutchRight] [Filter]:array
-@persist [B, Chair, E, G, TL, Driver]:entity [TurnPower, BrakePower, CalcTick, Tick, Diameter, SpeedUnit] [WheelsList, ShiftSpeeds]:array [Units, Controls]:table
+@persist [B, Chair, E, G, TL, Driver]:entity [TurnPower, BrakePower, CalcTick, Tick, Diameter, SpeedUnit] [WheelsList, ControlInputs, ShiftSpeeds]:array [Units, Controls]:table
 @trigger none
 @strict
 
@@ -11,16 +11,21 @@
 
 
 ]#
-if (first() | duped())
+if (first() | dupefinished())
 {   
     TurnPower  = 40
     BrakePower = 40
     
     local Ratios         = array(0.1, 0.2, 0.3, 0.4, 0.5, 0.6) #We have to manually input the ratios cuz ACE's e2 functions dont work.
+    GBFinalRatio = 1 #Put the main gearbox final ratio here.
+    
     local ModelWhitelist = array("") #Wheel models, default is sprops wheels.
     
     
     SpeedUnit = 1 #1 is kph, 2 is mph
+    
+    
+    ControlInputs = array("W", "A", "S", "D") #Inputs, do "Up, Left, Down, Right" if you want arrow keys. or put whatever inputs u want.
     
     
     B     = Base:entity()
@@ -105,12 +110,12 @@ if (first() | duped())
         local Ratio       = TransferCase:acfGearRatio(1)
         local FinalRatio  = TransferCase:acfFinalRatio()
 
-        local RedlineRatio = Redline * Ratio * FinalRatio
+        local RedlineRatio = Redline * abs(Ratio * FinalRatio)
         
         
         foreach (_, V:number = Ratios)
         {
-            ShiftSpeed:pushNumber(RedlineRatio * V * Diameter * Units["Var", array][SpeedUnit, number] * _PI)
+            ShiftSpeed:pushNumber(RedlineRatio * abs(V) * Diameter * Units["Var", array][SpeedUnit, number] * _PI * abs(GBFinalRatio))
         }
         return ShiftSpeed
     }
@@ -132,12 +137,13 @@ if (first() | duped())
     
     function table entity:steering() #Takes inputs from a driver, outputs it in a table for acf.
     {
-        local W = This:keyPressed("W")
-        local A = This:keyPressed("A")
-        local S = This:keyPressed("S")
-        local D = This:keyPressed("D")
+        local Forward  = This:keyPressed(ControlInputs[1, string])
+        local Left     = This:keyPressed(ControlInputs[2, string])
+        local Backward = This:keyPressed(ControlInputs[3, string])
+        local Right    = This:keyPressed(ControlInputs[4, string])
             
-        local Inputs = vec2(W - S, A - D)
+        local Inputs = vec2(Forward - Backward, Left - Right)
+        
         local Gears  = vec2()
         local Brakes = vec2()
         
@@ -278,10 +284,12 @@ event tick()
     
     if (CalcTick >= 30)
     {
+        if (WheelsList:count())
+        {
         local WheelRPM = WheelsList:getRPM() #Gets rpm from entities in an array.
         
         Speed = WheelRPM * Diameter * Units["Var", array][SpeedUnit, number] * _PI #Calculating kph or mph.
-        
+        }
         if (G:acfType() == "CVT") #if gearbox is cvt, Gear will output 1.
         {
             Gear = 1
@@ -308,8 +316,4 @@ event tick()
         
         CalcTick = 0
     }
-}
-if (dupefinished())
-{
-    reset()
 }
