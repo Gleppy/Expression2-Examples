@@ -1,7 +1,7 @@
 @name Glep's Tank Mobility Chip
 @inputs [Base, Seat, Engine, Gearbox, TransferL, TransferR]:wirelink
-@outputs [Speed, Active, Throttle, Gear, GearLeft, GearRight, BrakeLeft, BrakeRight, ClutchLeft, ClutchRight] [ShiftSpeeds, Filter]:array
-@persist [B, Chair, E, G, TL, Driver]:entity [TurnPower, BrakePower, CalcTick, Tick, Diameter, SpeedUnit] [WheelsList, ControlInputs]:array [Units, Controls]:table
+@outputs [Speed, Active, Throttle, Gear, GearLeft, GearRight, BrakeLeft, BrakeRight, ClutchLeft, ClutchRight] Filter:array
+@persist [B, Chair, E, G, TL, Driver]:entity [TurnPower, BrakePower, CalcTick, Tick, Diameter, SpeedUnit] [WheelsList, ShiftSpeeds, ControlInputs]:array [Units, Controls]:table
 @trigger none
 @strict
 
