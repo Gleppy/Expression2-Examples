@@ -1,0 +1,315 @@
+@name Glep's Tank Mobility Chip
+@inputs [Base, Seat, Engine, Gearbox, TransferL, TransferR]:wirelink
+@outputs [Speed, Active, Throttle, Gear, GearLeft, GearRight, BrakeLeft, BrakeRight, ClutchLeft, ClutchRight] [Filter]:array
+@persist [B, Chair, E, G, TL, Driver]:entity [TurnPower, BrakePower, CalcTick, Tick, Diameter, SpeedUnit] [WheelsList, ShiftSpeeds]:array [Units, Controls]:table
+@trigger none
+@strict
+
+#[ Made by Glep lol
+
+    If you use a manual gearbox, input the gear ratios in the Ratios array below.
+
+
+]#
+if (first() | duped())
+{   
+    TurnPower  = 40
+    BrakePower = 40
+    
+    local Ratios         = array(0.1, 0.2, 0.3, 0.4, 0.5, 0.6) #We have to manually input the ratios cuz ACE's e2 functions dont work.
+    local ModelWhitelist = array("") #Wheel models, default is sprops wheels.
+    
+    
+    SpeedUnit = 1 #1 is kph, 2 is mph
+    
+    
+    B     = Base:entity()
+    Chair = Seat:entity()
+    E     = Engine:entity()
+    G     = Gearbox:entity()
+    TL    = TransferL:entity()
+    
+    
+    Units = table(
+    "DistUnit"  = array("mm", "in"),
+    "SpeedUnit" = array("kph", "mph"),
+    "Var"       = array(6e-05, 9.469696969697e-4)
+    )
+    
+    
+    setName("Glep's Tank Mobility Chip\n[Version: idgaf]")
+    
+    
+    if (Base:entity())
+    {
+        while (perf())
+        {
+            Filter = Base:entity():getConnectedEntities() #Filter for cam controller
+        }
+    }
+    
+    
+    function array entity:getWheels(ModelWhitelist:array) #entity:getWheels(array(string)) this function finds wheels
+    {
+        local Wheels = array()
+        
+        foreach (K, S:string = ModelWhitelist)
+        {
+            if (S:length() == 0)
+            {
+                ModelWhitelist:remove(K)
+            }
+        }
+        foreach (_, V:entity = This:acfGetLinkedWheels())
+        {
+            if (ModelWhitelist:count())
+            {
+                foreach (_, S:string = ModelWhitelist)
+                {
+                    if (V:model():find(S))
+                    {
+                        Wheels:pushEntity(V)
+                    }
+                }
+            }
+            else
+            {
+                if (V:model():find("models/sprops/trans/wheel_") | V:model():find("models/sprops/trans/miscwheels/"))
+                {
+                    Wheels:pushEntity(V)
+                }
+            }
+        }
+        return Wheels
+    }
+    
+    
+    function number array:getDiameter(Unit:string) # WheelArray:getDiameter(string) finds diameter of wheels in millimeters or inches.
+    {
+        local BoxSize = array()
+        
+        foreach (_, V:entity = This)
+        {
+            local GetBoxSize = floor(max(V:boxSize():x(), V:boxSize():y(), V:boxSize():z()))
+            BoxSize:pushNumber(GetBoxSize)
+        }
+        return toUnit(Unit, BoxSize:max())
+    }
+    
+    
+    function array entity:getShiftSpeeds(Ratios:array, TransferCase:entity, Diameter) #calculates shift points in kph or mph.
+    {
+        local ShiftSpeed = array()
+        
+        local Redline     = This:acfPowerbandMax() - 100
+        local Ratio       = TransferCase:acfGearRatio(1)
+        local FinalRatio  = TransferCase:acfFinalRatio()
+
+        local RedlineRatio = Redline * Ratio * FinalRatio
+        
+        
+        foreach (_, V:number = Ratios)
+        {
+            ShiftSpeed:pushNumber(RedlineRatio * V * Diameter * Units["Var", array][SpeedUnit, number] * _PI)
+        }
+        return ShiftSpeed
+    }
+    
+    
+    function number array:getRPM() #Finds rpm of entities in an array, and outputs the rpm of the entity with highest rpm.
+    {
+        local MaxRPM = array()
+        
+        foreach (_, V:entity = This)
+        {
+            local RPM = max(abs(V:angVel():pitch()), abs(V:angVel():yaw()), abs(V:angVel():pitch())) / 6
+            
+            MaxRPM:pushNumber(RPM)
+        }
+        return MaxRPM:max()
+    }
+    
+    
+    function table entity:steering() #Takes inputs from a driver, outputs it in a table for acf.
+    {
+        local W = This:keyPressed("W")
+        local A = This:keyPressed("A")
+        local S = This:keyPressed("S")
+        local D = This:keyPressed("D")
+            
+        local Inputs = vec2(W - S, A - D)
+        local Gears  = vec2()
+        local Brakes = vec2()
+        
+        switch (Inputs)
+        {
+            case vec2(1, 0),
+            Gears  = vec2(1, 1)
+            Brakes = vec2(0, 0)
+            break
+            
+            case vec2(-1, 0),
+            Gears  = vec2(2, 2)
+            Brakes = vec2(0, 0)
+            break
+            
+            case vec2(0, 1),
+            Gears  = vec2(2, 1)
+            Brakes = vec2(0, 0)
+            break
+            
+            case vec2(0, -1),
+            Gears  = vec2(1, 2)
+            Brakes = vec2(0, 0)
+            break
+            
+            case vec2(1, 1),
+            Gears  = vec2(1, 1)
+            Brakes = vec2(TurnPower, 0)
+            break
+            
+            case vec2(1, -1),
+            Gears  = vec2(1, 1)
+            Brakes = vec2(0, TurnPower)
+            break
+            
+            case vec2(-1, 1),
+            Gears  = vec2(2, 2)
+            Brakes = vec2(TurnPower, 0)
+            break
+            
+            case vec2(-1, -1),
+            Gears  = vec2(2, 2)
+            Brakes = vec2(0, TurnPower)
+            break
+            
+            case vec2(0, 0),
+            Gears  = vec2(1, 1)
+            Brakes = vec2(1, 1) * BrakePower
+            break
+        }
+        local ControlsTable = table(
+        
+        "Inputs" = Inputs,
+        "Gears"  = Gears,
+        "Brakes" = Brakes,
+        "Clutch" = vec2(sign(Brakes:x()), sign(Brakes:y()))
+        
+        )
+        return ControlsTable
+    }
+    
+    
+    if (B & E) #If Base and Engine is valid, then we find the wheels, finds their diameter, and then the shiftpoints.
+    {
+        WheelsList  = E:getWheels(ModelWhitelist)
+        Diameter    = WheelsList:getDiameter(Units["DistUnit", array][SpeedUnit, string])
+        ShiftSpeeds = E:getShiftSpeeds(Ratios, TL, Diameter)
+    }
+    
+    
+    CalcTick = Tick = 0
+}
+
+
+if (Chair)
+{
+    interval(1000)
+    
+    Driver = Chair:driver() #Check for driver, if chair is valid.
+}
+
+
+event tick()
+{
+    Tick++
+    
+    
+    if (Tick >= 8)
+    {
+        if (Driver)
+        {
+            Controls = Driver:steering() #Controls is the inputs table from driver.
+            
+            if (changed(Controls["Inputs", vector2])) #Outputting the inputs from table to the acf components.
+            {
+                local InputSignal = sign(Controls["Inputs", vector2]:length())
+                
+                Throttle    = InputSignal * 100
+                
+                GearLeft    = Controls["Gears", vector2]:x()
+                GearRight   = Controls["Gears", vector2]:y()
+                
+                BrakeLeft   = Controls["Brakes", vector2]:x()
+                BrakeRight  = Controls["Brakes", vector2]:y()
+                
+                ClutchLeft  = Controls["Clutch", vector2]:x()
+                ClutchRight = Controls["Clutch", vector2]:y()
+                
+                Engine["Throttle", number] = Throttle
+                
+                TransferL["Gear",  number] = GearLeft
+                TransferR["Gear",  number] = GearRight
+                
+                TransferL["Right Brake",  number] = BrakeLeft
+                TransferL["Left Brake",   number] = BrakeLeft
+                
+                TransferR["Right Brake",  number] = BrakeRight
+                TransferR["Left Brake",   number] = BrakeRight
+                
+                TransferL["Right Clutch", number] = ClutchLeft
+                TransferL["Left Clutch",  number] = ClutchLeft
+                
+                TransferR["Right Clutch", number] = ClutchRight
+                TransferR["Left Clutch",  number] = ClutchRight
+            }
+        }
+        if (changed(Driver))
+        {
+            Active = Driver ? 1 : 0
+            Engine["Active", normal] = Active
+        }
+    Tick = 0
+    }
+
+    
+    CalcTick++
+    
+    
+    if (CalcTick >= 30)
+    {
+        local WheelRPM = WheelsList:getRPM() #Gets rpm from entities in an array.
+        
+        Speed = WheelRPM * Diameter * Units["Var", array][SpeedUnit, number] * _PI #Calculating kph or mph.
+        
+        if (G:acfType() == "CVT") #if gearbox is cvt, Gear will output 1.
+        {
+            Gear = 1
+        }
+        else #If gearbox is not CVT, then itll do auto shifting, for a 6 speed or whatever.
+        {
+            if (!Controls["Inputs", vector2]:x()) #Forcing Gear to stay 1 when turning left or right stationary.
+            {
+                Gear = 1
+            }
+            else
+            {
+                foreach (K, V:number = ShiftSpeeds)
+                {
+                    if (Speed > V)
+                    {
+                        Gear = K + 1
+                    }
+                }
+            Gear = clamp(Gear, 1, ShiftSpeeds:count())
+            }
+        }
+        Gearbox["Gear", number] = Gear
+        
+        CalcTick = 0
+    }
+}
+if (dupefinished())
+{
+    reset()
+}
