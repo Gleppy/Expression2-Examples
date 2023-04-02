@@ -1,11 +1,11 @@
-@name Glep's Tank Mobility Chip
+@name Tank Mobility Chip
 @inputs [Base, Seat, Engine, Gearbox, TransferL, TransferR]:wirelink
-@outputs [Speed, Active, Throttle, Gear, GearLeft, GearRight, BrakeLeft, BrakeRight, ClutchLeft, ClutchRight] Filter:array
-@persist [B, Chair, E, G, TL, Driver]:entity [TurnPower, BrakePower, CalcTick, Tick, Diameter, SpeedUnit] [WheelsList, ShiftSpeeds, ControlInputs]:array [Units, Controls]:table
+@outputs [Speed, Active, Throttle, Gear, GearLeft, GearRight, BrakeLeft, BrakeRight, ClutchLeft, ClutchRight] [Filter]:array
+@persist [B, Chair, E, G, TL, Driver]:entity [TurnPower, BrakePower, CVT, CalcTick, Tick, Diameter, SpeedUnit] [WheelsList, ShiftSpeeds, ControlInputs]:array [Units, Controls]:table
 @trigger none
 @strict
 
-#[ Made by Glep lol
+#[
 
     If you use a manual gearbox, input the gear ratios in the Ratios array below.
 
@@ -42,10 +42,12 @@ if (first() | dupefinished())
     )
     
     
-    setName("Glep's Tank Mobility Chip\n[Version: idgaf]")
+    setName("Tank Mobility Chip\n[Version: idgaf]")
+    
+    CVT = G:acfType() == "CVT"
     
     
-    if (Base:entity())
+    if (B & ->Filter)
     {
         while (perf())
         {
@@ -101,25 +103,26 @@ if (first() | dupefinished())
         return toUnit(Unit, BoxSize:max())
     }
     
-    
-    function array entity:getShiftSpeeds(Ratios:array, TransferCase:entity, Diameter) #calculates shift points in kph or mph.
+    if (!CVT)
     {
-        local ShiftSpeed = array()
-        
-        local Redline     = This:acfPowerbandMax() - 100
-        local Ratio       = TransferCase:acfGearRatio(1)
-        local FinalRatio  = TransferCase:acfFinalRatio()
-
-        local RedlineRatio = Redline * abs(Ratio * FinalRatio)
-        
-        
-        foreach (_, V:number = Ratios)
+        function array entity:getShiftSpeeds(Ratios:array, TransferCase:entity, Diameter) #calculates shift points in kph or mph.
         {
-            ShiftSpeed:pushNumber(RedlineRatio * abs(V) * Diameter * Units["Var", array][SpeedUnit, number] * _PI * abs(GBFinalRatio))
-        }
-        return ShiftSpeed
-    }
+            local ShiftSpeed = array()
+            
+            local Redline     = This:acfPowerbandMax() - 100
+            local Ratio       = TransferCase:acfGearRatio(1)
+            local FinalRatio  = TransferCase:acfFinalRatio()
     
+            local RedlineRatio = Redline * abs(Ratio * FinalRatio)
+            
+            
+            foreach (_, V:number = Ratios)
+            {
+                ShiftSpeed:pushNumber(RedlineRatio * abs(V) * Diameter * Units["Var", array][SpeedUnit, number] * _PI * abs(GBFinalRatio))
+            }
+            return ShiftSpeed
+        }
+    }
     
     function number array:getRPM() #Finds rpm of entities in an array, and outputs the rpm of the entity with highest rpm.
     {
@@ -210,7 +213,11 @@ if (first() | dupefinished())
     {
         WheelsList  = E:getWheels(ModelWhitelist)
         Diameter    = WheelsList:getDiameter(Units["DistUnit", array][SpeedUnit, string])
-        ShiftSpeeds = E:getShiftSpeeds(Ratios, TL, Diameter)
+        
+        if (!CVT)
+        {
+            ShiftSpeeds = E:getShiftSpeeds(Ratios, TL, Diameter)
+        }
     }
     
     
@@ -290,7 +297,7 @@ event tick()
         
         Speed = WheelRPM * Diameter * Units["Var", array][SpeedUnit, number] * _PI #Calculating kph or mph.
         }
-        if (G:acfType() == "CVT") #if gearbox is cvt, Gear will output 1.
+        if (CVT) #if gearbox is cvt, Gear will output 1.
         {
             Gear = 1
         }
@@ -308,6 +315,10 @@ event tick()
                     {
                         Gear = K + 1
                     }
+                }
+                if (E:acfRPM() < E:acfPowerbandMin()) #Gears down if it begins to stall
+                {
+                    Gear--
                 }
             Gear = clamp(Gear, 1, ShiftSpeeds:count())
             }
