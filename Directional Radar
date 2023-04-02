@@ -1,49 +1,59 @@
 @name Directional Radar
-@inputs  [Parent]:wirelink 
-@outputs [Target]:entity 
-@persist [Ent]:entity
+@inputs Parent:wirelink 
+@outputs Target:entity 
+@persist [UpdateFreq, MaxDist, ConeDeg] Ent:entity
 
 if (first() | dupefinished())
 {
-    local Pos      = vec(0, 0, 50)
-    local Ang      = ang(90, 0, 0)
-    local ShowHolo = 1
+    local Pos   = vec(0, 0, 50) #Positon
+    local Ang   = ang(90, 0, 0) #Direction
     
-    local Self     = entity()
-
-    Ent = ->Parent ? Parent:entity() : Self:isWeldedTo() ?: Self
-
-    holoCreate(0, Ent:toWorld(Pos), vec(0.5), Ent:toWorld(Ang), vec4(ShowHolo ? 255 : 0), "models/sprops/misc/alphanum/alphanum_arrow_b.mdl")
+    UpdateFreq = 1   #how many updates per second
+    MaxDist    = 650 #meters
+    ConeDeg    = 20  #degrees
+    
+    
+    local Debug = 1
+    
+    
+    local Chip  = entity()
+    local P     = Parent:entity()
+    
+    
+    Ent = P ?: Chip:isWeldedTo() ?: Chip
+    
+    
+    holoCreate(0, Ent:toWorld(Pos), vec(0.5), Ent:toWorld(Ang), vec4(!Debug ?: 255), "models/sprops/misc/alphanum/alphanum_arrow_b.mdl")
     holoMaterial(0, "models/debug/debugwhite")
     holoParent(0, Ent)
     
+    
     timer("update", 0)
 }
-if (!Ent:isValid())
-{
-    exit()
-}
+
+
 if (clk("update"))
 {
-    local UpdateFreq = 1 #how many updates per second
-    local MaxDist    = 650 #meters
-    local ConeDeg    = 20 #degrees
-    
     if (findCanQuery())
     {
         findIncludeClass("prop_")
+        findIncludeEntities(players())
         findInCone(holoEntity(0):pos(), holoEntity(0):up(), convertUnit("m", "u", MaxDist), ConeDeg)
+        
         
         local Find = findClosest(Ent:pos())
         
+        
         if (Find)
         {
-            Target = Find:owner():isPlayer() ? Find : noentity()
+            Target = Find:isPlayer() ? Find : Find:owner():isPlayer() ? Find : noentity()
         }
         else
         {
             Target = noentity()
         }
     }
+    
+    
     timer("update", 1000 / UpdateFreq)
 }
