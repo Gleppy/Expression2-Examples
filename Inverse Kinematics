@@ -25,11 +25,11 @@ if (first() | dupefinished())
     }
     Base = Self:makeHolo(vec(), vec(), ang(), "models/sprops/misc/empty.mdl")
 
-    Joint1 = Base:makeHolo(vec(), vec(8), ang(), "models/starfall/holograms/sphere.mdl")
+    Joint1 = Base:makeHolo(vec(), vec(), ang(), "models/starfall/holograms/sphere.mdl")
 
     Bone1 = Joint1:makeHolo(vec(0, 0, Length_Bone1 / 2), vec(4, 4, Length_Bone1), ang(), "models/holograms/cube.mdl")
 
-    Joint2 = Bone1:makeHolo(vec(0, 0, Length_Bone1 / 2), vec(4), ang(), "models/starfall/holograms/cylinder.mdl")
+    Joint2 = Bone1:makeHolo(vec(0, 0, Length_Bone1 / 2), vec(), ang(), "models/starfall/holograms/cylinder.mdl")
 
     Joint2:makeHolo(vec(0, Length_Bone2 / 2, 0), vec(4, Length_Bone2, 4), ang(), "models/holograms/cube.mdl")
 }
