@@ -1,17 +1,22 @@
-@name Basic ACF Turret
-@persist [TurnSpeed TqStrength TqDamping]:number [TurretPos]:vector [Me Turret Ammo]:entity [TurretLink]:wirelink 
+@name Floating ACF Turret
+@persist [TurnSpeed TqStrength TqDamping, Tick]:number [TurretPos]:vector [Me Turret Ammo]:entity TurretLink:wirelink 
 @strict
 
 if (first() | dupefinished())
 {
-    TurnSpeed  = 3
-    TqStrength = 150
-    TqDamping  = 12
+    TurnSpeed  = 4
+    TqStrength = 175
+    TqDamping  = 24
     
     TurretPos  = vec(0, 0, 150)
     
+    
     Me         = owner()
     local Self = entity()
+    
+    
+    Tick = 0
+    
     
     if (findCanQuery())
     {
@@ -21,8 +26,12 @@ if (first() | dupefinished())
         findByClass("acf_ammo")
         Ammo = findClosest(Self:pos())
     }
+    
+    
     if (Turret & Ammo)
     {
+        Turret:propGravity(0)
+        
         TurretLink = Turret:wirelink()
         
         Ammo:acfActive(1)
@@ -33,29 +42,49 @@ if (first() | dupefinished())
         }
     }
 }
-if (!Turret:isValid() | !Ammo:isValid())
-{
-    exit()
-}
+
+
 event tick()
 {
-    if (Turret & Ammo)
+    Tick++
+    
+    
+    if (Tick >= 4)
     {
-        local AmmoPos   = TurretPos + Ammo:pos() + Ammo:vel() * tickInterval() * 2.5
-        local Force     = ((AmmoPos - Turret:pos()) * 24 - Turret:vel()) * Turret:mass()
+        if (Turret & Ammo)
+        {
+            local AmmoPos   = TurretPos + Ammo:pos() + Ammo:vel() * tickInterval() * 5
+            local Force     = ((AmmoPos - Turret:pos()) * 10 - Turret:vel()) * Turret:mass()
+            
+            
+            local AngTarget = (Me:aimPos() - Turret:pos()):toAngle()
+            local Vec       = rotationVector(quat(AngTarget) / quat(Turret)) 
+            local VecSpeed  = min(Vec:length(), TurnSpeed) 
+            local VecNorm   = Vec:normalized() * VecSpeed
+            local Torque    = (TqStrength * Turret:toLocalAxis(VecNorm) - TqDamping * Turret:angVelVector()) * Turret:inertia()
+            
+            
+            Turret:applyForce(Force)
+            Turret:applyTorque(Torque)
+            
+            
+            local Heat = TurretLink["Heat", number]
+            local Fire = Heat > 190 ? 0 : Me:keyWalk()
+            
+            
+            Turret:acfFire(Fire)
+        }
         
-        local AngTarget = (Me:aimPos() - Turret:pos()):toAngle()
-        local Vec       = rotationVector(quat(AngTarget) / quat(Turret)) 
-        local VecSpeed  = min(Vec:length(), TurnSpeed) 
-        local VecNorm   = Vec:normalized() * VecSpeed
-        local Torque    = (TqStrength * Turret:toLocalAxis(VecNorm) - TqDamping * Turret:angVelVector()) * Turret:inertia()
         
-        Turret:applyForce(Force)
-        Turret:applyTorque(Torque)
-        
-        local Heat = TurretLink["Heat", number]
-        local Fire = Heat > 190 ? 0 : Me:keyWalk()
-        
-        Turret:acfFire(Fire)
+        Tick = 0
+    }
+}
+
+
+event removed(Resetting:number)
+{
+    if (!Resetting)
+    {
+        Turret:propGravity(1)
     }
 }
