@@ -1,22 +1,70 @@
 @name Make it A Seat
 @strict
 
-if (first() | dupefinished())
+if (first())
 {
-    local Self   = entity()
-    local Entity = Self:isWeldedTo()
+    local Ent = entity():isWeldedTo()
     
-    if (Entity)
+    
+    function entity entity:makeItASeat()
     {
-        #ifdef seatSpawn(s,v,a,n)
-        seatSpawn(Entity:model(), Entity:pos(), Entity:angles(), Entity:isFrozen())
-        #else
-        print("propcore extension not found.")
-        exit()
-        #endif
+        if (propCanCreate())
+        {
+            if (This:type() == "prop_physics")
+            {
+                propSpawnEffect(0)
+                
+                local Table = table(
+                "Model"  = This:model(),
+                "Pos"    = This:pos(),
+                "Ang"    = This:angles(),
+                "Color"  = This:getColor4(),
+                "Mat"    = This:getMaterial(),
+                "PMat"   = This:propPhysicalMaterial(),
+                "Mass"   = This:mass(),
+                "Frozen" = This:isFrozen(),
+                "Vel"    = This:vel(),
+                "AngVel" = This:angVelVector()
+                )
+                
+                local Seat = seatSpawn(
+                Table["Model",  string],
+                Table["Pos",    vector],
+                Table["Ang",     angle],
+                Table["Frozen", normal]
+                )
+                
+                if (Seat)
+                {
+                    This:propDelete()
+                    
+                    Seat:setColor(            Table["Color", vector4])
+                    Seat:setMaterial(         Table["Mat",    string])
+                    Seat:propPhysicalMaterial(Table["PMat",   string])
+                    Seat:setMass(             Table["Mass",   number])
+                    Seat:propFreeze(          Table["Frozen", normal])
+                    Seat:propSetVelocity(     Table["Vel",    vector])
+                    Seat:propSetAngVelocity(  Table["AngVel", vector])
+                    
+                    return Seat
+                }
+            }
+            else
+            {
+                return noentity()
+            }
+        }
+    }
+    
+    
+    if (Ent)
+    {
+        local Seat = Ent:makeItASeat()
         
-        Entity:propDelete()
         
-        selfDestruct()
+        if (Seat)
+        {
+            selfDestruct()
+        }
     }
 }
