@@ -1,141 +1,112 @@
 @name ACF RPM Calculator
 @inputs [Engine, Transmission, Transfer, Differential, Wheels]:wirelink
 @outputs [ExpectedWheelRPM, WheelRPM, ExpectedEngineRPM, EngineRPM]
-@persist Tick WheelsList:array
+@persist [E, T, F, D]:entity [W, WheelsList]:array Tick
 @trigger 
 @strict
 
-#[
-    !!!READ DESCRIPTION!!!
-    
-    If you want to find specific wheels/entities, put their stringpath / partial stringpath in the ModelWhitelist. Example below.
-    
-    Example Of Whitelist:
-    ModelWhitelist = array("models/props_junk/PlasticCrate01a.mdl", "models/props_wasteland/prison_lamp001c.mdl", "models/props_interiors/Furniture_chair03a.mdl")
-
-    If you want to, you can link wheels/entities with an Adv Entity Marker, and wire "Wheels" input from the E2 to that adv Entity Marker.
-    The whitelist will not be used if wheels/entities are linked with Adv Entity Marker.
-]#
 if (first() | dupefinished())
 {
-    local ModelWhitelist = array("")
+    E = Engine:entity()
+    T = Transmission:entity()
+    F = Transfer:entity()
+    D = Differential:entity()
+    W = Wheels["Entities", array]
     
     
-    function array wirelink:getWheels(ModelWhitelist:array)
+    if (E & T & D)
     {
-        local Entity = This:entity()
-        local Wheels = array()
-        
-        foreach (K, S:string = ModelWhitelist)
+        function array entity:getWheels() #Finds all wheels connected to 
         {
-            if (S:length() == 0)
+            if (This:acfIsEngine())
             {
-                ModelWhitelist:remove(K)
+                Array = This:acfGetLinkedWheels()
             }
+            return Array
         }
-        foreach (_, V:entity = Entity:getConnectedEntities())
+        
+        
+        function array checkInput(InputName:string) #Checks if wheels are linked with adv entity marker and outputs those wheels if it is linked.
         {
-            if (ModelWhitelist:count())
+            local Input = ioGetInputWirelink(InputName)
+                
+            if (Input)
             {
-                foreach (_, S:string = ModelWhitelist)
-                {
-                    if (V:model():find(S))
-                    {
-                        Wheels:pushEntity(V)
-                    }
-                }
+                This = W
             }
             else
             {
-                if (V:model():find("models/sprops/trans/wheel_") | V:model():find("models/sprops/trans/miscwheels/"))
+                This = E:getWheels()
+            }
+            return This
+        }
+        
+        
+        function number array:getRPM() #Finds average rpm of wheels connected.
+        {
+            local AvgRPM = array()
+            
+            foreach (_, V:entity = This)
+            {
+                local RPM = max(abs(V:angVel():pitch()), abs(V:angVel():yaw()), abs(V:angVel():pitch())) / 6
+                
+                AvgRPM:pushNumber(RPM)
+            }
+            return AvgRPM:average()
+        }
+        
+        
+        function number entity:outputRPM(...Temp:array) #Calculates the expected wheel rpm based off of engine rpm and gearbox ratios.
+        {
+            local RPM = This:acfRPM()
+            
+            foreach (K, V:entity = Temp)
+            {
+                if (!V:acfIsGearbox())
                 {
-                    Wheels:pushEntity(V)
+                    Temp:remove(K)
                 }
             }
+            foreach (_, V:entity = Temp)
+            {
+                local Ratio      = V:acfGearRatio(V:acfGear())
+                local FinalRatio = V:acfFinalRatio()
+                
+                RPM *= Ratio * FinalRatio
+            }
+            return abs(RPM)
         }
-        return Wheels
-    }
-    
-    
-    function number array:getRPM()
-    {
-        local AvgRPM = array()
-        foreach (_, V:entity = This)
-        {
-            local RPM = max(abs(V:angVel():pitch()), abs(V:angVel():yaw()), abs(V:angVel():pitch())) / 6
-            
-            AvgRPM:pushNumber(RPM)
-        }
-        return AvgRPM:average() / 1.123 #The math is correct but somehow wheels linked to acf components will spin a tiny bit faster than the calculated output RPM, that's why it is divided by 1.107
-    }
-    
-    
-    function number wirelink:outputRPM(...Temp:array)
-    {
-        local RPM = This["RPM", number]
         
-        foreach (K, V:wirelink = Temp)
-        {
-            if (!V:entity():acfIsGearbox())
-            {
-                Temp:remove(K)
-            }
-        }
-        foreach (_, V:wirelink = Temp)
-        {
-            local Entity     = V:entity()
-            local Ratio      = Entity:acfGearRatio(Entity:acfGear())
-            local FinalRatio = Entity:acfFinalRatio()
-            
-            RPM *= Ratio * FinalRatio
-        }
-        return abs(RPM)
-    }
-    
-    
-    function number number:inputRPM(...Temp:array)
-    {
-        local RPM = This
         
-        foreach (K, V:wirelink = Temp)
+        function number number:inputRPM(...Temp:array) #Calculates engine rpm based off of wheel rpm and gearbox ratios.
         {
-            if (!V:entity():acfIsGearbox())
+            local RPM = This
+            
+            foreach (K, V:entity = Temp)
             {
-                Temp:remove(K)
+                if (!V:acfIsGearbox())
+                {
+                    Temp:remove(K)
+                }
             }
+            foreach (_, V:entity = Temp)
+            {
+                local Ratio      = V:acfGearRatio(V:acfGear())
+                local FinalRatio = V:acfFinalRatio()
+                if (V:acfGear() > 0)
+                {
+                    RPM /= abs(Ratio * FinalRatio)
+                }
+                else
+                {
+                    RPM = 0
+                }
+            }
+            return RPM
         }
-        foreach (_, V:wirelink = Temp)
-        {
-            local Entity     = V:entity()
-            local Ratio      = Entity:acfGearRatio(Entity:acfGear())
-            local FinalRatio = Entity:acfFinalRatio()
-            if (Entity:acfGear() > 0)
-            {
-                RPM /= abs(Ratio * FinalRatio)
-            }
-            else
-            {
-                RPM = 0
-            }
-        }
-        return RPM
-    }
     
-    
-    if (->Wheels)
-    {
-        WheelsList = Wheels["Entities", array]
-    }
-    else
-    {
-        if (->Engine)        
-        {
-            WheelsList = Engine:getWheels(ModelWhitelist)
-        }
-        else
-        {
-            WheelsList = array()
-        }
+        
+        WheelsList = checkInput("Wheels") #Puts wheels found in an array.
     }
     
     
@@ -147,17 +118,16 @@ event tick()
     
     if (Tick >= 20)
     {
-        ExpectedWheelRPM   = Engine:outputRPM(Transmission, Transfer, Differential)
-        WheelRPM           = WheelsList:getRPM()
-        
-        ExpectedEngineRPM  = WheelRPM:inputRPM(Transmission, Transfer, Differential)
-        EngineRPM          = Engine["RPM", number]
+        if (WheelsList:count())
+        {
+            WheelRPM           = WheelsList:getRPM()        #Finds rpm from the array.
+            ExpectedWheelRPM   = E:outputRPM(T, F, D)       #Calculates the expected wheel rpm based off of engine rpm and gearbox ratios.
+            
+            EngineRPM          = Engine["RPM", number]      #True engine rpm.
+            ExpectedEngineRPM  = WheelRPM:inputRPM(T, F, D) #Calculates engine rpm based off of wheel rpm and gearbox ratios.
+        }
         
         
         Tick = 0
     }
-}
-event input(_:string)
-{
-    reset()
 }
