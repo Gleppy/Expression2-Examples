@@ -1,136 +1,249 @@
 @name Ackermann Steering
-@inputs [Seat SlaveL SlaveR]:wirelink 
-@outputs [Steering]:number 
-@persist [S C SL SR FL FR RL RR Driver]:entity [Wheelbase Track MaxSteeringLock MaxSteeringSpeed SteeringWheel]:number [Wheels]:array
+@inputs [Chassis, Axle, Seat, SteeringPlateLeft, SteeringPlateRight]:wirelink [A, D]:number
+@outputs [SteeringAngle, Ops, Cpu]:number 
+@persist [Tickrate, StWheelLock, Ackermann, MaxAngle, MaxSpeed, ReturnSpeed, Gyro, GyroSens, Tick, I, Wheelbase, Track]:number [C, Ax, Chair, SPL, SPR, HoloLeft, HoloRight, SteeringWheel, Driver]:entity
+@trigger none
+@strict
 
+#[
+    A and D inputs are optional, don't need to wire them if you have a seat wired up.
+    Also if Axle is not wired, the setang slaves will follow chassis automatically.
+    Or else they will follow the Axle.
+]#
 if (first() | dupefinished())
 {
-    MaxSteeringLock  = 45
-    MaxSteeringSpeed = 3
+    StWheel     = 1              #want steering wheel?
+    StWheelMod  = "models/sprops/trans/stwheels/stwheel_5.mdl" #steering wheel model
+    StWheelSkin = 0              #steering wheel skin
+    StWheelSize = 1              #steering wheel size
+    StWheelPos  = vec(0, 0, 0)   #steering wheel pos
+    StWheelAng  = ang(-30, 0, 0) #steering wheel ang
+    StWheelLock = 900            #steering wheel max angle lock
     
-    local Debug = 1
+    Ackermann   = 1              #use trigonometry to calculate steering angles
+    MaxAngle    = 45             #angle lock
+    MaxSpeed    = 0.7            #steering speed
+    ReturnSpeed = 2              #steering return speed
     
-    S  = Seat:entity()
-    C  = S:isConstrainedTo()
-    SL = SlaveL:entity()
-    SR = SlaveR:entity()
+    Camber      = 0              #self explanatory
+    Caster      = 0              #self explanatory
+    Toe         = 0              #self explanatory
     
-    SL:setMass(50000)
-    SR:setMass(50000)
+    Gyro        = 1              #counter steering
+    GyroSens    = 0.5            #counter steering sensitivity
     
-    #ifdef noCollideAll(e,n)
-    noCollideAll(SL, 1)
-    noCollideAll(SR, 1)
-    #else
-    #endif
+    Tickrate    = 4              #update rate, higher value results in choppier steering but has less cpu time, I chose 4 for a mix between server performance and steering performance
     
-    #ifndef entity:setAng(a)
-    print("propcore extension not found.")
-    exit()
-    #endif
     
-    if (C:isValid())
+    C     = Chassis:entity()
+    Ax    = Axle:entity()
+    Chair = Seat:entity()
+    SPL   = SteeringPlateLeft:entity()
+    SPR   = SteeringPlateRight:entity()
+    
+    
+    Holograms = array()
+    WheelPos  = array()
+    
+    SteeringAngle = Tick = 0
+    
+    
+    if (SPL & SPR)
     {
-        I = Steering = SteeringWheel = 0
-        
-        findIncludeModel("models/sprops/trans/wheel_")
-        findByClass("prop_physics")
-    
-        local BoxSize = floor(C:boxSize())
-        local Yaw     = C:toLocal(S:angles()):yaw()
-        local Rotated = positive(BoxSize:rotateAroundAxis(C:up(), 90 + Yaw))
-    
-        holoCreate(0, C:pos(), vec(), S:toWorld(ang(0, -90, 0)))
-        holoParent(0, C)
-        
-        Wheels = array()
-        
-        for(X = -1, 1, 2)
+        if (Ax)
         {
-            for(Y = -1, 1, 2)
+            AngleLeft  = SPL:hasConstraints("AdvBallsocket") ? ang(-Camber, Caster,  Toe) : ang()
+            AngleRight = SPR:hasConstraints("AdvBallsocket") ? ang( Camber, Caster, -Toe) : ang()
+        }
+        else
+        {
+            AngleLeft  = SPL:hasConstraints("AdvBallsocket") ? ang(Caster, -Toe + 180,  Camber) : ang()
+            AngleRight = SPR:hasConstraints("AdvBallsocket") ? ang(Caster,  Toe + 180, -Camber) : ang()
+        }
+    }
+    
+    
+    if (C & holoCanCreate())
+    {
+        I = 0
+        local Size = round(C:boxSize())
+        
+        for (X = -1, 1, 2)
+        {
+            for (Y = -1, 1, 2)
             {
-                I++
-                local Pos = holoEntity(0):toWorld(vec(X * Rotated:x() / 2, Y * Rotated:y() / 2, 0))
-                
-                Wheels[I, entity] = findClosest(Pos)
-                Wheel = Wheels[I, entity]
-                
-                if (Debug) {
-                    holoCreate(I, Wheel:pos(), vec(0.5, 0.5, 50), Wheel:toWorld(ang(0, S:angles():yaw(), 90)), vec(255), "models/sprops/cylinders/size_1/cylinder_1_5x480.mdl")
-                    holoVisible(I, players(), 0)
-                    holoVisible(I, owner(), 1)
-                    holoDisableShading(I, 1)
-                    holoParent(I, Wheel)
+                local Hologram = holoCreate(I, C:toWorld(vec(X, Y, 0) * Size / 2), vec(), C:angles())
+    
+                if (Hologram)
+                {
+                    Holograms:pushEntity(Hologram)
+                    holoParent(I, C)
+                    I++
                 }
             }
         }
-        FL = Wheels[1, entity]
-        FR = Wheels[2, entity]
-        RL = Wheels[3, entity]
-        RR = Wheels[4, entity]
         
-        Wheelbase = FL:pos():distance(RL:pos())
-        Track     = FL:pos():distance(FR:pos())
-    
-        holoCreate(5, S:toWorld(vec(0, 22, 16)), vec(), S:toWorld(ang(-40, -90, 0)))
-        holoParent(5, C)
         
-        holoCreate(6, holoEntity(5):toWorld(vec(0, 0, 0)), vec(1), ang(), vec(255), "models/sprops/trans/stwheel/stwheel_9.mdl")
-        holoParent(6, C)
-        holoEntity(6):setSubMaterial(2, "sprops/sprops_grid_orange")
-    
-        setName("Steering")
+        if (findCanQuery())
+        {
+            foreach (_, V:entity = Holograms)
+            {
+                findInSphere(C:pos(), 200)
+                findIncludeModel("models/sprops/trans/wheel_")
+                
+                local Wheel = findClosest(V:pos())
+                
+                if (Wheel)
+                {
+                    WheelPos:pushVector(Wheel:pos())
+                    
+                    holoDelete(holoIndex(V))
+                }
+            }
+        }   
     }
-    else
+    
+    
+    if (WheelPos:count() <= 4)
     {
-        setName("Steering
-Can't find Chassis!")
-        exit()
+        Wheelbase = WheelPos[1, vector]:distance(WheelPos[3, vector])
+        Track     = WheelPos[1, vector]:distance(WheelPos[2, vector])
+    
+        if (holoCanCreate())
+        {    
+            if (Ax)
+            {
+                HoloLeft = holoCreate(5, Ax:pos(), vec(), Ax:toWorld(AngleLeft))
+                if (HoloLeft)
+                {
+                    holoParent(5, Ax)
+                }
+        
+                HoloRight = holoCreate(6, Ax:pos(), vec(), Ax:toWorld(AngleRight))
+                if (HoloRight)
+                {
+                    holoParent(6, Ax)
+                }
+            }
+            elseif (C)
+            {
+                HoloLeft = holoCreate(5, C:pos(), vec(), C:toWorld(AngleLeft))
+                if (HoloLeft)
+                {
+                    holoParent(5, C)
+                }
+                HoloRight = holoCreate(6, C:pos(), vec(), C:toWorld(AngleRight))
+                if (HoloRight)
+                {
+                    holoParent(6, C)
+                }
+            }
+        }
+    }
+    
+    
+    if (C & Chair & StWheel)
+    {
+        holoCreate(7, Chair:toWorld(vec(0, 26.663, 18.315) + StWheelPos), vec(), Chair:toWorld(ang(-25, -90, 0) + StWheelAng))
+        if (holoEntity(7))
+        {
+            holoParent(7, C)
+        }
+        SteeringWheel = holoCreate(8, holoEntity(7):pos(), vec(StWheelSize), holoEntity(7):angles(), vec(255), StWheelMod)
+        if (holoEntity(8))
+        {
+            holoParent(8, holoEntity(7))
+            holoSkin(8, StWheelSkin)
+        }
     }
 }
-interval(33)
 
-if (changed(S:driver()))
+
+event tick()
 {
+    Tick++
     
-    Driver = S:driver()
-}
-if (Driver:isValid())
-{
     
-    A = Driver:keyPressed("A")
-    D = Driver:keyPressed("D")
+    if (Tick >= Tickrate)
+    {
+        Ops = ops()
+        Cpu = cpuUsage() * 1000000
+        
+        
+        if (C)
+        {
+            if (Chair)
+            {
+                if (changed(Chair:driver()))
+                {
+                    Driver = Chair:driver()
+                }
+                if (Driver)
+                {
+                    DriverA  = Driver:keyPressed("A")
+                    DriverD  = Driver:keyPressed("D")
+                }
+            }
+            
+            
+            local Left  = DriverA | A
+            local Right = DriverD | D
+            
+            
+            local Vel         = abs(C:velL():x()) / ((Left | Right) ? ReturnSpeed * 1.7  :  1)
+            local Centripetal = (abs(C:velL():y()) / ((Left | Right) ? 20 : 15) * sign(-C:velL():x()))
+            local AngVel      = C:angVel():yaw() * sign(-C:velL():x())  / ((Left | Right) ? 20 : 15)
+            
+            
+            SteeringAngle += (Left - Right) * MaxSpeed * Tickrate
+            SteeringAngle -= (SteeringAngle) * clamp((Vel / 5000) * ReturnSpeed, 0, 1) + (Gyro ? ((AngVel * Centripetal) / 10) * GyroSens : 0)
+            SteeringAngle  = clamp(SteeringAngle, -MaxAngle, MaxAngle)
+            
+            
+            local CentralRadius = Wheelbase / tan(SteeringAngle)
+            local FinalAngL     = Ackermann ? atan(Wheelbase / (CentralRadius - Track / 2)) : SteeringAngle
+            local FinalAngR     = Ackermann ? atan(Wheelbase / (CentralRadius + Track / 2)) : SteeringAngle
+            
+            
+            if (SPL & SPR & HoloLeft & HoloRight & (changed(round(SteeringAngle)) | changed(round(C:angles()))))
+            {
+                if (Ax)
+                {
+                    SPL:setAng(HoloLeft:toWorld(ang(FinalAngL, 90, -90)))
+                    SPR:setAng(HoloRight:toWorld(ang(FinalAngR, 90, -90)))
+                }
+                else
+                {
+                    SPL:setAng(HoloLeft:toWorld(ang(0, FinalAngL, 0)))
+                    SPR:setAng(HoloRight:toWorld(ang(0, FinalAngR, 0)))
+        
+                }
+                
+                
+                if (!SPL:isPlayerHolding())
+                {
+                    if (changed(SPL:isFrozen()) & !SPL:isFrozen())
+                    {
+                        SPL:propFreeze(1)
+                    }
+                }
+                elseif (!SPR:isPlayerHolding())
+                {
+                    if (changed(SPR:isFrozen()) & !SPR:isFrozen())
+                    {
+                        SPR:propFreeze(1)
+                    }
+                }
+            }
+            
+            
+            if (SteeringWheel & changed(SteeringAngle))
+            {
+                holoAng(8, holoEntity(7):toWorld(ang(0, 0, (SteeringAngle / MaxAngle) * StWheelLock / 2)))
+            }
+        }
     
-    local Centripetal_Force = abs(clamp(((RL:velL():y() - RR:velL():y()) / 2) / 1200, -1, 1))
-    local Gyro              = -clamp(C:angVel():yaw() / ((A | D) ? 60 : 30), -1, 1) * Centripetal_Force
-    local Vel               = clamp(C:vel():length() / 600, 0, 1)
-
-    local SteeringSpeed = (((A | D) * (1 - Vel)) + Vel) * MaxSteeringSpeed
-    local SteeringLock  = (MaxSteeringLock / 2) + ((MaxSteeringLock / 2) * (1 - Vel))
-
-    Steering += clamp(((A - D) + Gyro * 2) * SteeringLock - Steering, -SteeringSpeed, SteeringSpeed)
     
-    SteeringWheel += (Steering - SteeringWheel) * 0.5
+    Tick = 0
+    }
 }
-CentralRadius = Wheelbase / tan(Steering)
-
-FinalAngL = atan(Wheelbase / (CentralRadius - Track / 2))
-FinalAngR = atan(Wheelbase / (CentralRadius + Track / 2))
-
-if (!SL:isPlayerHolding())
-{
-        SL:setAng(C:toWorld(ang(0, FinalAngL, 0)))
-}
-if (changed(SL:isPlayerHolding() | SL:isFrozen()) & (!SL:isPlayerHolding() | !SL:isFrozen()))
-{
-        SL:propFreeze(1)
-}
-if (!SR:isPlayerHolding())
-{
-        SR:setAng(C:toWorld(ang(0, FinalAngR, 0)))
-}
-if (changed(SR:isPlayerHolding() | SR:isFrozen()) & (!SR:isPlayerHolding() | !SR:isFrozen()))
-{
-        SR:propFreeze(1)
-}
-holoAng(6, holoEntity(5):toWorld(ang(0, 0, SteeringWheel * 8)))
