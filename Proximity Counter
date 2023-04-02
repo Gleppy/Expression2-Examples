@@ -1,6 +1,6 @@
 @name Proximity Counter
-@outputs [Player]:entity [BoxCount]:number
-@persist [BoxSize]:vector [UpdateFreq]:number [Self]:entity 
+@outputs Player:entity BoxCount:number
+@persist BoxSize:vector UpdateFreq Chip:entity 
 @strict
 
 if (first() | dupefinished())
@@ -8,7 +8,7 @@ if (first() | dupefinished())
     BoxSize = vec(400, 400, 400)
     UpdateFreq = 2
 
-    Self = entity()
+    Chip = entity()
     
     timer("update", 0) 
 }
@@ -19,7 +19,7 @@ elseif (clk("update"))
     
     foreach (_, Ply:entity = players())
     {
-        if (inrange(Ply:pos(), Self:pos() - BoxSize / 2, Self:pos() + BoxSize / 2))
+        if (inrange(Ply:pos(), Chip:pos() - BoxSize / 2, Chip:pos() + BoxSize / 2))
         {
             Player = Ply
             BoxCount++
