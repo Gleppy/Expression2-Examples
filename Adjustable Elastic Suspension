@@ -1,0 +1,78 @@
+@name Adjustable Elastic Suspension
+@trigger none
+@strict
+
+if (first() | dupefinished())
+{
+    local Height   = 8
+    local Constant = 30000
+    local Damping  = 3000
+    local RDamping = 100
+    local Bias     = 50    #front/rear bias 0-100, 50 is center
+    local Debug    = 1     #Show elastics or not
+    local Wheels   = array("models/sprops/trans/wheel_", "models/sprops/trans/miscwheels/")
+    
+    
+    local C = entity():isWeldedTo()
+    
+    
+    if (C)
+    {
+        function array entity:findWheels(Filter:array)
+        {
+            local Front = array()
+            local Rear  = array()
+            
+            
+            foreach (_, E:entity = This:getConnectedEntities())
+            {
+                foreach (_, S:string = Filter)
+                {
+                    if (E:model():find(S))
+                    {
+                        if (sign(This:toLocal(E:pos()):x()) == sign(1))
+                        {
+                            Front:pushEntity(E)
+                        }
+                        elseif (sign(This:toLocal(E:pos()):x()) == sign(-1))
+                        {
+                            Rear:pushEntity(E)
+                        }
+                    }
+                }
+            }
+            return Front:add(Rear)
+        }
+        
+        
+        function array entity:suspension([Length Constant Damping RDamping NumBias Debug], Filter:array)
+        {
+            local Wheels = This:findWheels(Filter)
+            local Bias   = clamp(NumBias / 100, 0, 1) - 0.5
+            
+            foreach (K, V:entity = Wheels)
+            {
+                if (V:hasConstraints("Elastic"))
+                {
+                    V:constraintBreak("Elastic")
+                }
+                
+                
+                if (K <= Wheels:count() / 2)
+                {
+                    hydraulic(1, V, vec(), This, This:toLocal(V:pos()):setZ(100), Constant + (Constant * Bias), Damping + (Damping * Bias), RDamping, "", Debug, 0)
+                    V:setLength(1, 100 + Length)
+                }
+                elseif (K > Wheels:count() / 2)
+                {
+                    hydraulic(1, V, vec(), This, This:toLocal(V:pos()):setZ(100), Constant - (Constant * Bias), Damping - (Damping * Bias), RDamping, "", Debug, 0)
+                    V:setLength(1, 100 + Length)
+                }
+            }
+            return Wheels
+        }
+        
+        
+        C:suspension(Height, Constant, Damping, RDamping, Bias, Debug, Wheels)
+    }
+}
