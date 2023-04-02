@@ -1,8 +1,8 @@
 @model models/props_junk/sawblade001a.mdl
 @name Heads or Tails
-@inputs [TextScreen]:wirelink 
+@inputs TextScreen:wirelink 
 @outputs [Status, FirstPlayer, FirstResult, LastPlayer, LastResult, Winner, Loser]:string
-@persist [Coin]:entity [Table]:table [TossForce, AngVelVec, Tossing]:number 
+@persist Coin:entity Table:table [TossForce, AngVelVec, Tossing]:number 
 @trigger none
 @strict
 
@@ -69,11 +69,10 @@ if (first() | dupefinished())
             "models/player/items/crafting/coin_summer2015_gold.mdl",
             "models/player/items/crafting/coin_summer2015_silver.mdl"
             )
-            local CoinHolo = holoCreate(0, Coin:toWorld(vec(0, 0, 0)), vec(), Coin:toWorld(ang(90, 0, 0)), vec(255), holoModelAny() ? Coins[randint(1, Coins:count()), string] : "models/props_trainstation/trainstation_clock001.mdl")
+            local CoinHolo = holoCreate(0, Coin:toWorld(vec(0, 0, 0)), vec(2.5, 6, 6), Coin:toWorld(ang(90, 0, 0)), vec(255), holoModelAny() ? Coins[randint(1, Coins:count()), string] : "models/props_trainstation/trainstation_clock001.mdl")
             
             if (CoinHolo:isValid())
             {
-                holoScaleUnits(holoIndex(CoinHolo), shiftR(Coin:boxSize()))
                 holoParent(holoIndex(CoinHolo), Coin)
             }
         }
@@ -176,15 +175,14 @@ if (Coin:isValid())
     #ifdef E:setWorldTip(S)
     if (changed(Tossing) & Tossing)
     {
-        Status = "Tossing..."
         Coin:setWorldTip("Tossing...")
     }
     elseif (changed(Tossing) & !Tossing)
     {
-        Status = "Ready"
         Coin:setWorldTip("Press Use to toss.")
     }
     #endif
+    Status = Tossing ? "Tossing..." : "Ready"
 }
 if (->TextScreen)
 {
