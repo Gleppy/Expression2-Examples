@@ -5,14 +5,16 @@
 
 if (first() | dupefinished())
 {
-    function array array:sortByDist(Origin:vector)
+    Origin = entity():boxCenterW()
+    
+    function void array:sortByDist(Origin:vector)
     {
-            for (I = 1, This:count() - 1)
+        for (I = 1, This:count() - 1)
+        {
+            for (J = I + 1, This:count())
             {
-                for (J = I + 1, This:count())
+                if (This[I, entity]:boxCenterW():distance(Origin) > This[J, entity]:boxCenterW():distance(Origin))
                 {
-                    if (This[I, entity]:pos():distance(Origin) > This[J, entity]:pos():distance(Origin))
-                    {
                     local Temp = array(
                     This[I, entity],
                     This[J, entity]
@@ -23,9 +25,7 @@ if (first() | dupefinished())
                 }
             }
         }
-        return This
     }
 }
-Array:sortByDist(entity():pos())
-
+Array:sortByDist(Origin)
 printTable(Array)
