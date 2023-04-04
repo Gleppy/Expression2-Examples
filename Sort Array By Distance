@@ -1,0 +1,31 @@
+@name Sort array by distance
+@inputs Array:array
+@trigger none
+@strict
+
+if (first() | dupefinished())
+{
+    function array array:sortByDist(Origin:vector)
+    {
+            for (I = 1, This:count() - 1)
+            {
+                for (J = I + 1, This:count())
+                {
+                    if (This[I, entity]:pos():distance(Origin) > This[J, entity]:pos():distance(Origin))
+                    {
+                    local Temp = array(
+                    This[I, entity],
+                    This[J, entity]
+                    )
+                    
+                    This[I, entity] = Temp[2, entity]
+                    This[J, entity] = Temp[1, entity]
+                }
+            }
+        }
+        return This
+    }
+}
+Array:sortByDist(entity():pos())
+
+printTable(Array)
